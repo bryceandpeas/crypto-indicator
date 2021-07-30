@@ -61,30 +61,44 @@ class CryptoIndicator():
 
 	def create_menu(self):
 		# Init menu
-		menu = Gtk.Menu()
+		main_menu = Gtk.Menu()
 		
-		# Create menu items from loaded Crypto JSON
+		# Get all protocols from loaded config
+		protocols = []
 		for key, value in CONFIG.cryptos.items():
-			menu_item = Gtk.MenuItem.new_with_label(key)
-			menu_item.connect('activate', self.init_updater, CONFIG.cryptos[key])
-			menu.append(menu_item)
-
+			if value['protocol'] not in protocols:
+				protocols.append(value['protocol'])
+		
+		# Create protocol sub-menu items from listed crypto protocols
+		for protocol in protocols:
+			protocol_menu = Gtk.Menu()
+			protocol_item = Gtk.MenuItem.new_with_label(protocol)
+			protocol_item.set_submenu(protocol_menu)
+			main_menu.append(protocol_item)
+			
+			# Create sub-menu items from loaded Crypto JSON
+			for k, v in CONFIG.cryptos.items():
+				if protocol == v['protocol']:
+					menu_item = Gtk.MenuItem.new_with_label(k.title())
+					menu_item.connect('activate', self.init_updater, k)
+					protocol_menu.append(menu_item)
+			
 		menu_seperator = Gtk.SeparatorMenuItem()
 		menu_quit = Gtk.MenuItem.new_with_label('Quit')
 		menu_quit.connect('activate', self.stop)
 		
-		menu.append(menu_seperator)
-		menu.append(menu_quit)
+		main_menu.append(menu_seperator)
+		main_menu.append(menu_quit)
 		
 		# Show all menu items
-		menu.show_all()
+		main_menu.show_all()
 		
-		return menu
+		return main_menu
 		
 	def get_pricing(self, crypto):
-		r = requests.get('https://api.kraken.com/0/public/Ticker?pair={0}'.format(crypto['pair']))
+		r = requests.get('https://api.kraken.com/0/public/Ticker?pair={0}'.format(CONFIG.cryptos[crypto]['pair']))
 		crypto_json = r.json()
-		crypto_price = crypto_json['result'][crypto['kraken_token']]['a'][0]
+		crypto_price = crypto_json['result'][CONFIG.cryptos[crypto]['kraken_token']]['a'][0]
 		return round(float(crypto_price), 2)
 		
 	def init_updater(self, source, crypto):
@@ -95,9 +109,9 @@ class CryptoIndicator():
 	
 	# Call the get_pricing function and append set the indicator label to the returned price
 	def update_pricing(self, source, crypto):
-		icon = crypto['icon']
-		name = crypto['name'].title()
-		pair = crypto['pair']
+		icon = CONFIG.cryptos[crypto]['icon']
+		name = crypto.title()
+		pair = CONFIG.cryptos[crypto]['pair']
 		
 		self.update_label(name, icon)
 		price = str(self.get_pricing(crypto))
