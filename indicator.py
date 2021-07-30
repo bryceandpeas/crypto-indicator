@@ -63,20 +63,16 @@ class CryptoIndicator():
 		# Init menu
 		menu = Gtk.Menu()
 		
-		# Create menu items
-		menu_bitcoin = Gtk.MenuItem.new_with_label('Bitcoin')
-		menu_ethereum = Gtk.MenuItem.new_with_label('Ethereum')
+		# Create menu items from loaded Crypto JSON
+		for key, value in CONFIG.cryptos.items():
+			menu_item = Gtk.MenuItem.new_with_label(key)
+			menu_item.connect('activate', self.init_updater, CONFIG.cryptos[key])
+			menu.append(menu_item)
+
 		menu_seperator = Gtk.SeparatorMenuItem()
 		menu_quit = Gtk.MenuItem.new_with_label('Quit')
-		
-		# Create menu item actions
-		menu_bitcoin.connect('activate', self.init_updater, CONFIG.cryptos['bitcoin'])
-		menu_ethereum.connect('activate', self.init_updater, CONFIG.cryptos['ethereum'])
 		menu_quit.connect('activate', self.stop)
 		
-		# Add items to menu
-		menu.append(menu_bitcoin)
-		menu.append(menu_ethereum)
 		menu.append(menu_seperator)
 		menu.append(menu_quit)
 		
