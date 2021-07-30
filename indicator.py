@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import base64, hashlib, hmac, json, os, urllib.request
+import base64, configparser, hashlib, hmac, json, os, urllib.request
+from collections import namedtuple
 from signal import signal, SIGINT, SIG_DFL
 from threading import Thread
 from time import time, sleep
@@ -15,12 +16,27 @@ require_version('AppIndicator3', '0.1')
 
 from gi.repository import Gtk, AppIndicator3, GLib
 
-UPDATE_TIME = 10
+# Load Config File
+
+def load_configuration():
+	config = configparser.ConfigParser()
+	config.read('config/config.ini')
+	config.get('UPDATE_TIME', 'TIME')
+
+	api_key = config['API']['KEY']
+	api_sign = config['API']['SIGN']
+	icon_dir = config['ICONPATH']['PATH']
+	update_time = int(config['UPDATE_TIME']['TIME'])
+	
+	config = namedtuple("config", "api_key api_sign icon_dir update_time")
+	CONFIG = config(api_key, api_sign, icon_dir, update_time)
+
+	return CONFIG
+	
 CRYPTO_PAIRS = {
-				'bitcoin': {'name': 'bitcoin', 'pair':'BTCGBP', 'kraken_token':'XXBTZGBP', 'iconpath': '/bitcoin.png'},
-				'ethereum': {'name': 'ethereum', 'pair':'ETHGBP', 'kraken_token':'XETHZGBP', 'iconpath': '/ethereum.png'}
+				'bitcoin': {'name': 'bitcoin', 'pair':'BTCGBP', 'kraken_token':'XXBTZGBP', 'icon': 'bitcoin.png'},
+				'ethereum': {'name': 'ethereum', 'pair':'ETHGBP', 'kraken_token':'XETHZGBP', 'icon': 'ethereum.png'}
 			   }
-CURR_DIR = os.getcwd()
 
 def get_kraken_auth():
 	""" Modified from: 
@@ -28,8 +44,8 @@ def get_kraken_auth():
 	"""
 	api_nonce = bytes(str(int(time()*1000)), "utf-8")
 	api_request = urllib.request.Request("https://api.kraken.com/0/private/GetWebSocketsToken", b"nonce=%s" % api_nonce)
-	api_request.add_header("API-Key", "")
-	api_request.add_header("API-Sign", base64.b64encode(hmac.new(base64.b64decode(""), b"/0/private/GetWebSocketsToken" + hashlib.sha256(api_nonce + b"nonce=%s" % api_nonce).digest(), hashlib.sha512).digest()))
+	api_request.add_header("API-Key", CONFIG.api_key)
+	api_request.add_header("API-Sign", base64.b64encode(hmac.new(base64.b64decode(CONFIG.api_sign), b"/0/private/GetWebSocketsToken" + hashlib.sha256(api_nonce + b"nonce=%s" % api_nonce).digest(), hashlib.sha512).digest()))
 
 	return(json.loads(urllib.request.urlopen(api_request).read())['result']['token'])
 
@@ -38,7 +54,7 @@ class CryptoIndicator():
 
 	def __init__(self):
 		self.app = 'CryptoIndicator'
-		iconpath = CURR_DIR + "/money.png"
+		iconpath = CONFIG.icon_dir + "money.png"
 		
 		self.indicator = AppIndicator3.Indicator.new(
 			self.app, iconpath,
@@ -87,11 +103,11 @@ class CryptoIndicator():
 	
 	# Call the get_pricing function and append set the indicator label to the returned price
 	def update_pricing(self, source, crypto):
-		iconpath = crypto['iconpath']
+		icon = crypto['icon']
 		name = crypto['name'].title()
 		pair = crypto['pair']
 		
-		self.update_label(name, iconpath)
+		self.update_label(name, icon)
 		price = str(self.get_pricing(crypto))
 		
 		while True:
@@ -101,11 +117,12 @@ class CryptoIndicator():
 				price, self.app,
 				priority=GLib.PRIORITY_DEFAULT
 				)
-			sleep(UPDATE_TIME)
+			sleep(CONFIG.update_time)
 	
 	# Update the label to display the selected crypto name and associated icon			
-	def update_label(self, name, iconpath):
-		iconpath = CURR_DIR + iconpath
+	def update_label(self, name, icon):
+		iconpath = str(CONFIG.icon_dir) + icon
+
 		self.indicator.set_icon_full(iconpath, self.app)
 		self.indicator.set_label(name, self.app)
 
@@ -114,6 +131,8 @@ class CryptoIndicator():
 		Gtk.main_quit()
 
 if __name__ == "__main__":
+	CONFIG = load_configuration()
+	print(CONFIG.icon_dir)
 	CryptoIndicator()
 	signal(SIGINT, SIG_DFL)
 	Gtk.main()
