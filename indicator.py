@@ -25,19 +25,15 @@ def load_configuration():
 
 	api_key = config['API']['KEY']
 	api_sign = config['API']['SIGN']
+	cryptos = json.loads(config['CRYPTOS']['UK'])
 	icon_dir = config['ICONPATH']['PATH']
 	update_time = int(config['UPDATE_TIME']['TIME'])
 	
-	config = namedtuple("config", "api_key api_sign icon_dir update_time")
-	CONFIG = config(api_key, api_sign, icon_dir, update_time)
+	config = namedtuple("config", "api_key api_sign cryptos icon_dir update_time")
+	CONFIG = config(api_key, api_sign, cryptos, icon_dir, update_time)
 
 	return CONFIG
 	
-CRYPTO_PAIRS = {
-				'bitcoin': {'name': 'bitcoin', 'pair':'BTCGBP', 'kraken_token':'XXBTZGBP', 'icon': 'bitcoin.png'},
-				'ethereum': {'name': 'ethereum', 'pair':'ETHGBP', 'kraken_token':'XETHZGBP', 'icon': 'ethereum.png'}
-			   }
-
 def get_kraken_auth():
 	""" Modified from: 
 		https://support.kraken.com/hc/en-us/articles/360034437672-How-to-retrieve-a-WebSocket-authentication-token-Example-code-in-Python-3
@@ -74,8 +70,8 @@ class CryptoIndicator():
 		menu_quit = Gtk.MenuItem.new_with_label('Quit')
 		
 		# Create menu item actions
-		menu_bitcoin.connect('activate', self.init_updater, CRYPTO_PAIRS['bitcoin'])
-		menu_ethereum.connect('activate', self.init_updater, CRYPTO_PAIRS['ethereum'])
+		menu_bitcoin.connect('activate', self.init_updater, CONFIG.cryptos['bitcoin'])
+		menu_ethereum.connect('activate', self.init_updater, CONFIG.cryptos['ethereum'])
 		menu_quit.connect('activate', self.stop)
 		
 		# Add items to menu
