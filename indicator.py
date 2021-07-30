@@ -45,8 +45,8 @@ def get_kraken_auth():
 
 	return(json.loads(urllib.request.urlopen(api_request).read())['result']['token'])
 
-
 class CryptoIndicator():
+
 
 	def __init__(self):
 		self.app = 'CryptoIndicator'
@@ -58,6 +58,8 @@ class CryptoIndicator():
 		self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)	   
 		self.indicator.set_menu(self.create_menu())
 		self.indicator.set_label("Select Crypto", self.app)
+		
+		self.new_selection = False
 
 	def create_menu(self):
 		# Init menu
@@ -102,43 +104,59 @@ class CryptoIndicator():
 		return round(float(crypto_price), 2)
 		
 	def init_updater(self, source, crypto):
-		self.update = Thread(target=self.update_pricing, kwargs={'crypto': crypto, 'source': source})
-		self.update.setDaemon(True)
-		self.update.start()
+		if self.new_selection == False:
+			# Set new_selection to True to break previous loop and end thread
+			self.new_selection = True
+			# Wait update_time before creating new thread 
+			sleep(CONFIG.update_time)
+			self.new_selection = False
+			self.update = Thread(name=crypto, target=self.update_pricing, kwargs={'crypto': crypto, 'new_selection': self.new_selection, 'source': source})
+			self.update.setDaemon(True)
+			self.update.start()
+		elif self.new_selection == True:
+			self.new_selection = False
+			print(self.new_selection)
+			self.update = Thread(name=crypto, target=self.update_pricing, kwargs={'crypto': crypto, 'new_selection': self.new_selection, 'source': source})
+			self.update.setDaemon(True)
+			self.update.start()
+			
 		return None
 	
 	# Call the get_pricing function and append set the indicator label to the returned price
-	def update_pricing(self, source, crypto):
+	def update_pricing(self, source, new_selection, crypto):
 		icon = CONFIG.cryptos[crypto]['icon']
 		name = crypto.title()
 		pair = CONFIG.cryptos[crypto]['pair']
+		symbol = CONFIG.cryptos[crypto]['code']
 		
 		self.update_label(name, icon)
-		price = str(self.get_pricing(crypto))
 		
 		while True:
-			price = name + ': £' + str(self.get_pricing(crypto))
-			GLib.idle_add(
-				self.indicator.set_label,
-				price, self.app,
-				priority=GLib.PRIORITY_DEFAULT
-				)
-			sleep(CONFIG.update_time)
+			if self.new_selection == True:
+				break
+			else:
+				price = symbol + ' ' + name + ': £' + str(self.get_pricing(crypto))
+				GLib.idle_add(
+					self.indicator.set_label,
+					price, self.app,
+					priority=GLib.PRIORITY_DEFAULT
+					)
+				sleep(CONFIG.update_time)
 	
 	# Update the label to display the selected crypto name and associated icon			
 	def update_label(self, name, icon):
-		iconpath = str(CONFIG.icon_dir) + icon
+		iconpath = str(CONFIG.icon_dir) + 'blank.png'
 
 		self.indicator.set_icon_full(iconpath, self.app)
-		self.indicator.set_label(name, self.app)
+		self.indicator.set_label("Updating...", self.app)
 
 	# Call to quit the program
 	def stop(self, source):
 		Gtk.main_quit()
+		
 
 if __name__ == "__main__":
 	CONFIG = load_configuration()
-	print(CONFIG.icon_dir)
 	CryptoIndicator()
 	signal(SIGINT, SIG_DFL)
 	Gtk.main()
